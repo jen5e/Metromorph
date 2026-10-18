@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Metromorph</title>
+<style>
+:root{--bg:#0b0b0d;--panel:#131316;--head:#1a1a1e;--field:#0c0c0e;--fg:#e4e4e7;--muted:#7d7d86;--line:#2a2a2f;--track:#232328;--shape:#228b22;--hand:#ffb83b;--hov:#45454c;--sfill:#3a3a41;--opt:#17171b;--cbd:#44444b;color-scheme:dark;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html[data-theme=light]{--bg:#f0f0f2;--panel:#fbfbfc;--head:#e8e8ec;--field:#f4f4f6;--fg:#1a1a1e;--muted:#6a6a73;--line:#d3d3da;--track:#dcdce2;--hov:#a9a9b3;--sfill:#b6b6c0;--opt:#fff;--cbd:#9a9aa5;--hand:#e8920a;color-scheme:light}
+.theme{position:fixed;top:calc(8px + env(safe-area-inset-top,0px));left:8px;z-index:5;width:30px;height:30px;padding:0;display:grid;place-items:center;font-size:15px;line-height:1;background:var(--panel);color:var(--muted)}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px);background:var(--bg)}
+body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:560px;margin:0 auto;padding:16px 12px 32px;display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
+canvas{width:100%;aspect-ratio:1;display:block;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+.stage{display:grid;gap:10px;min-width:0}
+.controls{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;align-content:start;min-width:0}
+@media(min-width:860px){main{max-width:1120px;grid-template-columns:minmax(0,1fr) minmax(340px,430px);gap:32px;align-items:center;padding-top:28px}}
+
+/* flat controls */
+button,select,input{font:inherit;color:var(--fg)}
+button{cursor:pointer;background:var(--field);border:1px solid var(--line);border-radius:2px;padding:5px 12px;color:var(--muted);transition:color .12s,border-color .12s,background .12s}
+button:hover{color:var(--fg);border-color:var(--hov)}
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:1px solid var(--fg);outline-offset:2px}
+.transport{display:flex;align-items:stretch;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:8px}
+button.play{width:84px;height:44px;padding:0;color:var(--fg);border:1px solid var(--shape);background:color-mix(in srgb,var(--shape) 22%,transparent);font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase}
+button.play:hover{background:color-mix(in srgb,var(--shape) 38%,transparent);border-color:var(--shape)}
+.bpmbox{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--field);border:1px solid var(--line);border-radius:2px}
+#bpmn{font-size:1.7rem;width:72px;text-align:right;font-weight:300;font-variant-numeric:tabular-nums;border:0;background:transparent;padding:0;-moz-appearance:textfield}
+.unit{color:var(--muted);font-size:10px;letter-spacing:.14em;text-transform:uppercase}
+.swatches{display:flex;gap:4px;align-items:center}
+input.dot{-webkit-appearance:none;appearance:none;width:22px;height:44px;padding:0;border:1px solid var(--line);border-radius:2px;background:none;cursor:pointer;overflow:hidden;flex:none}
+input.dot::-webkit-color-swatch-wrapper{padding:0}
+input.dot::-webkit-color-swatch{border:0}
+input.dot::-moz-color-swatch{border:0}
+
+.seg{display:flex;flex:1;min-width:0;gap:2px;background:var(--field);border:1px solid var(--line);border-radius:2px;padding:2px}
+.seg button{flex:1;min-width:0;border:0;padding:4px 0;font-size:10px;letter-spacing:.12em;text-transform:uppercase;background:transparent}
+.seg button.on{background:color-mix(in srgb,var(--shape) 35%,transparent);color:var(--fg)}
+.zb{left:46px}
+.theme svg{display:block}
+#zenhint{display:none;text-align:center;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);opacity:0;pointer-events:none;transition:opacity .6s}
+body.zen #zenhint{display:block}
+/* zen mode: only the cycle */
+body.zen .controls{display:none}
+body.zen .stage{cursor:pointer}
+body.zen:not(.playing) #zenhint{opacity:.7}
+/* loop brackets on the morph bar */
+.mw{position:relative;flex:1;min-width:0;display:flex}
+.dim{position:absolute;top:2px;bottom:2px;background:color-mix(in srgb,var(--panel) 62%,transparent);pointer-events:none;border-radius:2px}
+#dl{left:0}#dr{right:0}
+.br{position:absolute;top:0;bottom:0;width:26px;margin-left:-13px;cursor:ew-resize;touch-action:none;z-index:2}
+.br::after{content:"";position:absolute;top:1px;bottom:1px;width:7px;border:2px solid var(--fg);border-radius:1px}
+.br.lo::after{left:13px;margin-left:-1px;border-right:0}
+.br.hi::after{right:13px;margin-right:-1px;border-left:0}
+/* devices */
+.card{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;min-width:0}
+.grp{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:0 10px 10px}
+.hd{margin:0 -10px 2px;padding:6px 10px;background:var(--head);border-bottom:1px solid var(--line);border-radius:3px 3px 0 0;font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between;align-items:center}
+.row{display:flex;align-items:center;gap:8px;min-height:24px}
+.row>label{width:56px;color:var(--muted);font-size:10px;letter-spacing:.1em;text-transform:uppercase;flex:none}
+.val{width:44px;text-align:right;color:var(--muted);font-variant-numeric:tabular-nums;font-size:11px;flex:none}
+.row.sub{padding-left:64px}
+.row.sub label{width:auto;min-width:0;flex:0 1 auto;display:flex;gap:8px;align-items:center;font-size:11px;letter-spacing:.02em;text-transform:none;color:var(--muted);cursor:pointer}
+
+/* fields */
+.card input[type=number],.card input[type=text],.card select{background:var(--field);border:1px solid var(--line);border-radius:2px;padding:5px 8px;transition:border-color .12s}
+.card input[type=number]:hover,.card input[type=text]:hover,.card select:hover{border-color:var(--hov)}
+.card input[type=number]:focus,.card input[type=text]:focus,.card select:focus{outline:none;border-color:var(--shape)}
+.card input[type=number]{width:56px;text-align:center;-moz-appearance:textfield}
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.card select{-webkit-appearance:none;appearance:none;flex:1;min-width:0;padding-right:28px;cursor:pointer;
+ background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='%237d7d86' stroke-width='1.4'/></svg>");
+ background-repeat:no-repeat;background-position:right 9px center}
+.card select option{background:var(--opt);color:var(--fg)}
+.card input.pat{flex:1;min-width:0;font-size:1.15rem;letter-spacing:.22em;padding:6px 10px}
+#colon{width:30px;height:32px;padding:0;font-size:1rem;line-height:1;flex:none}
+.ratio .l{color:var(--c1,var(--shape))}.ratio .c{color:var(--fg)}.ratio .r{color:var(--c2,var(--shape))}
+.ratio{font-size:1.3rem;font-weight:300;font-variant-numeric:tabular-nums;color:var(--shape);min-width:76px;text-align:right}
+
+/* sliders: flat bars, filled part, thin handle (Ableton-style) */
+input[type=range]{-webkit-appearance:none;appearance:none;flex:1;min-width:0;height:24px;background:transparent;cursor:pointer;margin:0;--p:50%;--fill:var(--sfill)}
+input[type=range]::-webkit-slider-runnable-track{height:20px;border-radius:2px;background:linear-gradient(90deg,var(--fill) var(--p),var(--track) var(--p))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:2px;height:20px;margin:0;border-radius:0;background:var(--thumb,var(--fg));border:0;box-shadow:none}
+input[type=range]::-moz-range-track{height:20px;border-radius:2px;background:var(--track)}
+input[type=range]::-moz-range-progress{height:20px;border-radius:2px;background:var(--fill)}
+input[type=range]::-moz-range-thumb{width:2px;height:20px;border:0;border-radius:0;background:var(--thumb,var(--fg))}
+input[type=range]:focus-visible{outline:none}
+#morph{--fill:color-mix(in srgb,var(--shape) 72%,#000);--thumb:var(--fg)}
+
+/* toggles: small square LEDs */
+input[type=checkbox]{-webkit-appearance:none;appearance:none;width:14px;height:14px;border-radius:2px;background:var(--field);border:1px solid var(--cbd);position:relative;cursor:pointer;flex:none;margin:0;transition:background .12s,border-color .12s}
+input[type=checkbox]:checked{background:var(--shape);border-color:var(--shape)}
+
+/* sound device */
+details{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:3px}
+summary{cursor:pointer;color:var(--muted);font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;list-style:none;display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--head);border-radius:3px}
+details[open] summary{border-bottom:1px solid var(--line);border-radius:3px 3px 0 0}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"\25BE";font-size:11px}
+details[open] summary::after{content:"\25B4"}
+summary:hover{color:var(--fg)}
+details>.body{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;padding:10px}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+.note{margin:18px 16px 28px;text-align:center;font-size:11px;line-height:1.5;color:var(--muted);opacity:.8}
+body.zen .note{display:none}
+#pre{flex:1;min-width:0;padding:5px 6px;background:var(--field);border:1px solid var(--line);border-radius:2px}
+.pb{padding:5px 10px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;flex:none}
+</style>
+</head>
+<body>
+<button id="zen" class="theme zb" type="button" aria-label="Zen mode: hide or show the menus" title="Zen mode"><svg viewBox="34 -645 532 570" width="17" height="17" fill="currentColor" aria-hidden="true"><path transform="scale(1,-1)" d="M300 204Q300 251 267.0 272.0Q234 293 189 293H167Q142 293 142 312Q142 333 169 333H181Q207 333 230.0 353.5Q253 374 253 401Q253 427 229.0 442.5Q205 458 167 458Q111 458 70 449Q60 447 52.0 447.0Q44 447 39.0 454.0Q34 461 34 468Q34 472 38.0 478.0Q42 484 48 485Q101 498 175 498Q228 498 260.5 471.0Q293 444 293 397Q293 371 277.5 349.5Q262 328 242 320Q253 318 266 314Q318 331 391 384Q531 384 531 204V114Q531 89 511.0 89.0Q491 89 491 114V204Q491 277 462.5 310.5Q434 344 393 344Q356 314 306 289Q340 255 340 204Q340 142 305.0 108.5Q270 75 205 75Q132 75 44 145Q34 153 34 163Q34 170 39.0 176.5Q44 183 52 183Q62 183 75 173Q151 115 197 115Q244 115 272.0 136.5Q300 158 300 204ZM421 645Q442 645 456.5 630.0Q471 615 471 594Q471 574 456.0 559.5Q441 545 421.0 545.0Q401 545 386.0 560.0Q371 575 371.0 595.0Q371 615 386.0 630.0Q401 645 421 645ZM297 590Q314 590 317 568Q319 539 349.0 520.0Q379 501 421.0 501.0Q463 501 492.5 520.0Q522 539 525 568Q528 590 546 590Q554 590 560.0 583.5Q566 577 566 567Q566 522 524.0 491.0Q482 460 421.0 460.0Q360 460 318.0 491.0Q276 522 276 567Q276 590 297 590Z"/></svg></button>
+<button id="theme" class="theme" type="button" aria-label="Switch between dark and light mode" title="Dark / light"></button>
+<main>
+  <div class="stage"><canvas id="wheel" aria-label="Rhythm cycle"></canvas>
+  <div id="zenhint">tap the circle to start and stop</div>
+  </div>
+  <div class="controls">
+  <div class="transport">
+    <button id="play" class="play" aria-label="Start or stop">Start</button>
+    <div class="bpmbox"><input id="bpmn" type="number" min="30" max="300" aria-label="BPM"><span class="unit">bpm</span></div>
+    <span class="swatches"><input id="accent" class="dot" type="color" value="#228b22" aria-label="Colour at the start of the morph" title="Colour at the start of the morph"><input id="accent2" class="dot" type="color" value="#d4a017" aria-label="Colour at the end of the morph" title="Colour at the end of the morph"></span>
+  </div>
+  <div class="card"><details open data-k="rhythm"><summary>Rhythm</summary><div class="body">
+  <div class="row"><label for="pat">Pattern</label><input id="pat" class="pat" type="text" inputmode="decimal" autocomplete="off" aria-label="Pattern digits"><button id="colon" type="button" aria-label="Insert colon between two patterns" title="Insert : between two patterns">:</button><span class="ratio" id="ratio" title="steps : total units"></span></div>
+  <div class="row"><label for="pre">Preset</label><select id="pre" aria-label="Load a saved preset"></select><button id="psave" class="pb" type="button" title="Save the current pattern and settings as a preset">Save</button><button id="pdel" class="pb" type="button" title="Delete the selected preset">Delete</button></div>
+  <div class="row"><label for="morph">Morph</label><div class="mw"><input id="morph" type="range" min="0" max="100" step="0.5"><b class="dim" id="dl"></b><b class="dim" id="dr"></b><i class="br lo" id="bl" title="Loop start (double-tap to reset)"></i><i class="br hi" id="bh" title="Loop end (double-tap to reset)"></i></div><span class="val" id="mv"></span></div>
+  <div class="row sub"><label><input id="auto" type="checkbox"> auto</label><input id="secs" type="range" min="1" max="64" step="1" aria-label="Cycles for one morph sweep"><span class="val" id="scv" style="width:66px"></span></div>
+  <div class="row sub"><label><input id="sub" type="checkbox"> hear subdivision at the ends of the morph</label></div>
+  <div class="row"><label>Division</label><div class="seg" id="swg" role="group" aria-label="Division: subdivisions through the morph"><button type="button" data-v="">Off</button><button type="button" data-v="all" title="All subdivisions: the bigger grid dissolves into the smaller one">All</button><button type="button" data-v="fit" title="Fit: only as many notes as the smaller grid has, shifted along">Fit</button></div></div>
+  </div></details>
+  <details open data-k="time"><summary>Time</summary><div class="body">
+  <div class="row"><label for="bpm">Tempo</label><input id="bpm" type="range" min="30" max="300" step="1"><span class="val" id="tpv"></span></div>
+  <div class="row"><label>Cycle</label><input id="num" type="number" min="1" max="64" aria-label="Cycle numerator"><span>/</span><input id="den" type="number" min="1" max="28" aria-label="Cycle denominator"><span class="val" id="cyc" style="width:auto;flex:1;text-align:left"></span></div>
+  </div></details>
+  <details data-k="sound"><summary>Sound</summary><div class="body">
+    <div class="row"><label for="voice">Voice</label><select id="voice" aria-label="Sound"><option value="beep">Beep</option><option value="wood">Wood block</option><option value="cow">Cowbell</option><option value="click">Electronic click</option></select></div>
+    <div class="row"><label>Pitch</label><input id="sp" type="range" min="200" max="2000" step="10"><span class="val" id="spv"></span></div>
+    <div class="row"><label>Volume</label><input id="svol" type="range" min="0" max="1" step=".05"><span class="val" id="svv"></span></div>
+    <div class="row"><label title="Delay the animation to match Bluetooth sound">Sync</label><input id="slag" type="range" min="0" max="600" step="10" aria-label="Animation delay for Bluetooth"><span class="val" id="slv" style="width:56px"></span></div></div></details>
+  </div>
+  </div>
+</main>
+<p class="note">An implementation of Malcolm Braff's rhythm plugins. All math was compiled with AI, using the General Theory of Rhythm site.<br>credits: @jassdudek</p>
+<script>
+var COLS={};   // theme colours read once per theme change, not every frame
+function refreshCols(){const css=getComputedStyle(document.documentElement);["--fg","--muted","--line","--hand"].forEach(n=>COLS[n]=css.getPropertyValue(n).trim())}
+const themeBtn=document.getElementById("theme");
+const ICON_SUN='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg>',
+ ICON_MOON='<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M20.4 14.6A8.6 8.6 0 1 1 9.4 3.6a7 7 0 0 0 11 11z"/></svg>';   // plain one-colour icons, no emoji
+function setTheme(t,keep){document.documentElement.dataset.theme=t;refreshCols();themeBtn.innerHTML=t==="light"?ICON_MOON:ICON_SUN;if(keep)try{localStorage.setItem("groove-theme",t)}catch(e){}}
+{let t=null;try{t=localStorage.getItem("groove-theme")}catch(e){}if(t!=="light"&&t!=="dark")t=matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";setTheme(t)}
+const setZen=on=>{document.body.classList.toggle("zen",on);document.documentElement.classList.toggle("zen",on);refreshCols()};
+document.getElementById("zen").onclick=()=>setZen(!document.body.classList.contains("zen"));
+document.addEventListener("keydown",e=>{if(e.key==="Escape")setZen(false)});
+themeBtn.onclick=()=>setTheme(document.documentElement.dataset.theme==="light"?"dark":"light",true);
+document.querySelectorAll("details[data-k]").forEach(d=>{try{const v=localStorage.getItem("groove-open-"+d.dataset.k);if(v!==null)d.open=v==="1"}catch(e){}d.addEventListener("toggle",()=>{try{localStorage.setItem("groove-open-"+d.dataset.k,d.open?"1":"0")}catch(e){}})});
+const S={lo:0,hi:100,bpm:90,morph:100,auto:true,cyc:8,num:1,den:4,accent:"#228b22",accent2:"#d4a017",sound:{pitch:880,pan:0,vol:.8},w:[2,2,3,2,2]};
+try{const x=JSON.parse(localStorage.getItem("groove-s7")||"null");if(x&&Array.isArray(x.w)&&x.w.length>=1&&x.w.length<=32)Object.assign(S,x)}catch(e){}
+S.num=1;S.den=1;   // the cycle always opens as 1/1 (a whole note), whatever was saved
+if(!(S.lo>=0&&S.hi<=100&&S.hi-S.lo>=2)){S.lo=0;S.hi=100}   // loop brackets on the morph bar, in percent
+if(S.swing===true)S.swing="all";if(!S.swing)S.swing="";   // swing: "" off, "all" every subdivision, "fit" only as many notes as the smaller grid
+const save=()=>{try{localStorage.setItem("groove-s7",JSON.stringify(S))}catch(e){}};
+const $=id=>document.getElementById(id);
+const tri=ph=>{ph%=1;return ph<.5?ph*2:2-ph*2};
+let ctx=null,playing=false,timer=null,cycleStart=0,cycleNo=0,uOff=0,cur=null,pi=0,cycles=[],events=[],hits={},fr=0,lastPos=-1;
+
+// Auto morph is counted in cycles: hold one cycle at the start, ramp to the end over N cycles, hold one cycle, ramp back.
+// u = position in cycles (cycle number + place inside the cycle). N is the "cycles" slider.
+const autoRaw=u=>{const N=S.cyc,H=1,P=2*(N+H);let p=((u%P)+P)%P;if(p<H)return 0;p-=H;if(p<N)return p/N;p-=N;if(p<H)return 1;return 1-(p-H)/N};
+const autoM=u=>(S.lo+(S.hi-S.lo)*autoRaw(u))/100;   // auto morph only travels between the two loop brackets
+const nowU=()=>{const p=cycles[0];return p?p.k+clamp((ctx.currentTime-p.s)/p.P):0};
+const curM=()=>S.auto&&playing&&cycles[0]?autoM(nowU()-uOff):S.morph/100;
+const cycDur=()=>240*S.num/(S.den*S.bpm);                                // cycle = num/den of a whole note; BPM counts quarters
+// Onset k sits at (1-m)*k/n + m*(units before step k)/(total units). For 22322: 5 steps over 11 units = 5:11.
+function buildPlan(cn,mFix){const A=S.w,B=S.w2,n=A.length,on=[];
+ const sum=w=>w.reduce((a,b)=>a+b,0),cum=w=>{let c=0;return w.map(x=>{const v=c;c+=x;return v})};
+ const mk=u=>mFix!=null?mFix:(S.auto&&playing&&cn!=null?autoM(u-uOff):S.morph/100);   // morph value at cycle position u
+ const tA=sum(A),cA=cum(A),tB=B?sum(B):0,cB=B?cum(B):null,c0=cn||0;
+ // one pattern: even k/n -> phrased. Two patterns (same step count): phrased A -> phrased B, accents stay constant.
+ // Each note takes the morph value of its own moment (two refinement steps), so auto morph glides inside a cycle too.
+ for(let k=0;k<n;k++){const from=B?cA[k]/tA:k/n,to=B?cB[k]/tB:cA[k]/tA;let pos=from;for(let it=0;it<2;it++)pos=from+(to-from)*mk(c0+pos);on.push({pos,acc:k===0,i:k})}
+ const ev=on.slice(),m=mk(c0+.5);
+ // subdivided notes: the unit grid of the pattern sitting at the end of the morph (both ends when morphing pattern to pattern)
+ // each subdivided note takes the morph value of its own moment: it sounds (fading in) within the last 15% before an end of the morph
+ // swing subdivisions: the notes inside each step travel with the morph, from straight subdivisions of the n-tuplet to the unit grid
+ // (single pattern: they fade in from nothing with sin(m*pi/2); pattern to pattern: the j-th note of a step glides from pattern A's place to pattern B's, spare notes fade out (cos) or in (sin))
+ const add=(k,f,from,to,g)=>{let pos=from;for(let it=0;it<2;it++)pos=from+(to-from)*mk(c0+pos);const v=g(mk(c0+pos));if(v>.03)ev.push({pos,acc:false,sub:true,g:v})};
+ if(S.swing&&(B?Math.max(tA,tB):tA)<=96){
+  for(let k=0;k<n;k++){
+   if(!B){for(let j=1;j<A[k];j++){const f=j/A[k];add(k,f,(k+f)/n,(cA[k]+j)/tA,m=>Math.sin(m*Math.PI/2))}}
+   else if(S.swing==="fit"){   // always as many notes as the smaller grid has: its notes sit on its own grid at one end and are fitted onto the bigger grid at the other
+    const Sw=tA<=tB?A:B;
+    for(let j=1;j<Sw[k];j++){const pin=(P,cP,tP)=>Sw===P?(cP[k]+j)/tP:(cP[k]+Math.round(j*P[k]/Sw[k]))/tP;add(k,0,pin(A,cA,tA),pin(B,cB,tB),()=>1)}}
+   else{const nA=A[k]-1,nB=B[k]-1,mt=Math.min(nA,nB),fo=m=>Math.cos(m*Math.PI/2),fi=m=>Math.sin(m*Math.PI/2);
+    for(let j=1;j<=mt;j++)add(k,0,(cA[k]+j)/tA,(cB[k]+j)/tB,()=>1);                                   // the j-th note of a step glides from the first pattern's place to the second's
+    for(let j=mt+1;j<=nA;j++)add(k,0,(cA[k]+j)/tA,(cB[k]+j/A[k]*B[k])/tB,fo);                          // notes without a partner dissolve...
+    for(let j=mt+1;j<=nB;j++)add(k,0,(cA[k]+j/B[k]*A[k])/tA,(cB[k]+j)/tB,fi)}}                        // ...or appear
+ }
+
+ // "hear subdivision at the ends of the morph": within the last 15% before an end, that end's grid is completed with every subdivision note
+ // that is not already sounding (with swing All, or a single pattern with swing on, they are all there already; with Fit, only the notes it doesn't use are added)
+ if(S.sub&&!(S.swing&&(S.swing!=="fit"||!B))){
+  const zone=e=>m=>Math.max(0,1-Math.abs(m-e)/.15);
+  if(!B){if(tA<=96)for(let k=0;k<n;k++)for(let u=1;u<A[k];u++)add(k,0,(k+u/A[k])/n,(cA[k]+u)/tA,zone(1))}
+  else if(Math.max(tA,tB)<=96){const Sw=S.swing==="fit"?(tA<=tB?A:B):null;
+   for(let k=0;k<n;k++){
+    const used=P=>{const r=new Set();if(Sw)for(let j=1;j<Sw[k];j++)r.add(Sw===P?j:Math.round(j*P[k]/Sw[k]));return r};
+    const uA=used(A),uB=used(B);
+    for(let u=1;u<A[k];u++)if(!uA.has(u))add(k,0,(cA[k]+u)/tA,(cB[k]+u/A[k]*B[k])/tB,zone(0));
+    for(let u=1;u<B[k];u++)if(!uB.has(u))add(k,0,(cA[k]+u/B[k]*A[k])/tA,(cB[k]+u)/tB,zone(1))}}}
+ ev.sort((a,b)=>a.pos-b.pos);return{on,ev,m,n,tot:B&&m>=.5?tB:tA,tA,tB}}
+// Feel of the current shape, measured against the straight n-tuplet. Each note is e = k/n - position early(+) or late(-).
+// energy = sum of |e| (how far from straight, as a share of the cycle); balance = sum of e / sum of |e|, from -1 (laid back) to +1 (pushy).
+// time bend: notes sit on an even grid i/n; warp maps grid position -> time position
+const warp=(pl,g)=>{const n=pl.on.length,f=g*n+1e-9,i=Math.min(Math.floor(f),n-1),a=pl.on[i].pos,b=i+1<n?pl.on[i+1].pos:1;return a+(b-a)*Math.min(f-i,1)};
+
+// Voices, all synthesised: beep (sine), wood block, cowbell, electronic click. Pitch and volume apply to each one.
+let noiseBuf=null;
+const noise=()=>noiseBuf||(noiseBuf=(()=>{const b=ctx.createBuffer(1,Math.floor(ctx.sampleRate*.1),ctx.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;return b})());
+function click(t,e){
+ const acc=e.acc,v=(e.sub?.3*(e.g??1):acc?1:.5)*S.sound.vol*.6,f=S.sound.pitch*(e.sub?.7:acc?1.5:1),voice=S.sound.voice||"beep",
+  g=ctx.createGain(),p=ctx.createStereoPanner();p.pan.value=S.sound.pan;g.connect(p);p.connect(ctx.destination);
+ const env=(h,peak,dec,sus)=>{h.gain.setValueAtTime(.0001,t);h.gain.exponentialRampToValueAtTime(Math.max(peak*v,.0002),t+.001);if(sus)h.gain.exponentialRampToValueAtTime(Math.max(sus*v,.0002),t+.03);h.gain.exponentialRampToValueAtTime(.0001,t+dec)};
+ const tone=(type,fr,peak,dec,from)=>{const o=ctx.createOscillator(),h=ctx.createGain();o.type=type;o.frequency.setValueAtTime(from||fr,t);if(from)o.frequency.exponentialRampToValueAtTime(fr,t+.012);
+  env(h,peak,dec);o.connect(h);h.connect(g);o.start(t);o.stop(t+dec+.02)};
+ const hit=(type,fr,q,peak,dec)=>{const n=ctx.createBufferSource(),b=ctx.createBiquadFilter(),h=ctx.createGain();n.buffer=noise();b.type=type;b.frequency.value=fr;b.Q.value=q;
+  env(h,peak,dec);n.connect(b);b.connect(h);h.connect(g);n.start(t);n.stop(t+dec+.02)};
+ if(voice==="wood"){tone("triangle",f,1,.07,f*1.12);tone("sine",f*2.76,.35,.03);hit("bandpass",f*2,4,.5,.02)}
+ else if(voice==="cow"){const bf=ctx.createBiquadFilter(),h=ctx.createGain();bf.type="bandpass";bf.frequency.value=f*3;bf.Q.value=1.2;
+  env(h,2.2,.22,.8);[.614,.909].forEach(r=>{const o=ctx.createOscillator();o.type="square";o.frequency.value=f*r;o.connect(bf);o.start(t);o.stop(t+.24)});bf.connect(h);h.connect(g)}
+ else if(voice==="click"){tone("square",f*1.4,.5,.014);hit("highpass",6000,.7,.5,.008)}
+ else tone("sine",f,1,.06)}
+// after a phone lock the timers and the animation stop but the audio clock may not: jump to the current cycle instead of replaying everything missed
+function resync(){const now=ctx.currentTime,C=cycDur();if(now-cycleStart>C+.2){const k=Math.floor((now-cycleStart)/C);cycleStart+=k*C;cycleNo+=k;cur=buildPlan(cycleNo);pi=0;lastPos=-1;cycles=[{s:cycleStart,P:C,k:cycleNo}];events=[]}}
+function sched(){if(ctx.state==="closed")return;resync();const H=ctx.currentTime+.12;
+ if(events.length>64)events.splice(0,events.length-64);if(cycles.length>6)cycles.splice(0,cycles.length-3);
+ for(;;){const C=cycDur();
+  while(pi<cur.ev.length){const e=cur.ev[pi],t=cycleStart+e.pos*C;if(t>=H)return;if(t<ctx.currentTime-.05){pi++;continue}const mu=!e.sub&&S.mute&&S.mute[e.i];if(!mu){click(Math.max(t,ctx.currentTime),e);if(!e.sub)events.push({t,i:e.i})}lastPos=e.pos;pi++}
+  if(cycleStart+C<H){cycleStart+=C;cycleNo++;cur=buildPlan(cycleNo);pi=0;lastPos=-1;cycles.push({s:cycleStart,P:C,k:cycleNo})}else return}}
+// iPhone: Web Audio is silenced by the ringer switch unless the page counts as "playback" audio. A looping silent <audio> element, started in the tap, does that.
+let silent=null;
+function unlockIOS(){try{if(navigator.audioSession)navigator.audioSession.type="playback"}catch(e){}
+ try{if(!silent){const n=800,b=new Uint8Array(44+n),dv=new DataView(b.buffer),w=(o,t)=>[...t].forEach((c,i)=>b[o+i]=c.charCodeAt(0));
+  w(0,"RIFF");dv.setUint32(4,36+n,true);w(8,"WAVEfmt ");dv.setUint32(16,16,true);dv.setUint16(20,1,true);dv.setUint16(22,1,true);dv.setUint32(24,8000,true);dv.setUint32(28,8000,true);dv.setUint16(32,1,true);dv.setUint16(34,8,true);w(36,"data");dv.setUint32(40,n,true);b.fill(128,44);
+  silent=new Audio(URL.createObjectURL(new Blob([b],{type:"audio/wav"})));silent.loop=true;silent.setAttribute("playsinline","")}
+  silent.play().catch(()=>{})}catch(e){}}
+document.addEventListener("pointerdown",()=>{if(ctx&&ctx.state!=="running"&&ctx.state!=="closed")ctx.resume().catch(()=>{})},true);   // any touch revives audio iOS has paused
+function start(){unlockIOS();document.body.classList.add("playing");if(!ctx||ctx.state==="closed")ctx=new(window.AudioContext||window.webkitAudioContext)();ctx.resume().catch(()=>{});
+ try{const u=ctx.createBufferSource();u.buffer=ctx.createBuffer(1,1,22050);u.connect(ctx.destination);u.start(0)}catch(e){}   // silent blip inside the tap: unlocks audio on iOS
+ cycleStart=ctx.currentTime+.1;cycleNo=0;uOff=0;playing=true;events=[];hits={};cur=buildPlan(0);pi=0;lastPos=-1;cycles=[{s:cycleStart,P:cycDur(),k:0}];
+ timer=setInterval(sched,25);$("play").textContent="Stop";sched()}
+document.addEventListener("visibilitychange",()=>{if(document.hidden||!ctx)return;if(ctx.state!=="running")ctx.resume().catch(()=>{});
+ if(playing)setTimeout(()=>{if(playing&&ctx.state!=="running")stop();else if(playing){clkOff=null;lastNow=0;resync()}},700)});   // back from lock: restart the clock, or drop to Stop if iOS refused to resume audio
+function stop(){document.body.classList.remove("playing");if(silent)silent.pause();clearInterval(timer);playing=false;draw.sig=null;$("play").textContent="Start"}
+const toggle=()=>playing?stop():start();
+// the Morph slider changes the rhythm while it plays; it never starts playback by itself
+function replan(){if(!playing)return;cur=buildPlan(cycleNo);pi=cur.ev.findIndex(x=>x.pos>lastPos+1e-6);if(pi<0)pi=cur.ev.length;sched()}
+$("play").onclick=toggle;
+document.addEventListener("keydown",e=>{if(e.code==="Space"&&!/INPUT|SELECT|TEXTAREA|BUTTON|SUMMARY/.test(e.target.tagName)){e.preventDefault();toggle()}});
+function setBpm(v){S.bpm=Math.round(Math.min(300,Math.max(30,v)));syncTop();save()}
+
+// ---- controls
+function meta(){const sum=w=>w.reduce((a,b)=>a+b,0),tA=sum(S.w);
+ const rl=S.w2?tA:S.w.length,rr=S.w2?sum(S.w2):tA;   // left number = first colour, right number = second colour, colon white
+ if(S.w2||!S.bRaw)$("ratio").innerHTML='<span class="l">'+rl+'</span><span class="c"> : </span><span class="r">'+rr+'</span>';else $("ratio").textContent="needs "+S.w.length;
+ if(document.activeElement!==$("pat"))$("pat").value=S.w.join("")+(S.w2?":"+S.w2.join(""):"");}
+function fill(){meta()}
+function syncTop(){$("bpm").value=$("bpmn").value=S.bpm;$("tpv").textContent=S.bpm;$("morph").value=S.morph;$("mv").textContent=Math.round(S.morph)+"%";$("auto").checked=S.auto;$("sub").checked=!!S.sub;segSwing();$("secs").value=S.cyc;$("scv").textContent=S.cyc+" cycles";
+ $("num").value=S.num;$("den").value=S.den;$("cyc").textContent=+(4*S.num/S.den).toFixed(2)+" beats";if(typeof fillAll==="function")fillAll()}
+$("pat").oninput=e=>{const p=e.target.value.split(/[:;.,\/\s-]+/).map(x=>x.replace(/[^1-9]/g,"").slice(0,32));   // "22322" or "22322:33433"; : ; . , / - or a space all separate the two patterns
+ if(!p[0])return;if(p[0].length!==S.w.length)S.mute=[];S.w=[...p[0]].map(Number);S.bRaw=p[1]||"";S.w2=p[1]&&p[1].length===p[0].length?[...p[1]].map(Number):null;fill();save()};
+$("colon").onclick=()=>{const i=$("pat");if(!/[:;.,\/\s-]/.test(i.value))i.value+=":";i.focus();i.oninput({target:i})};   // iOS keypads have no colon
+$("bpm").oninput=e=>setBpm(+e.target.value);
+$("bpmn").onchange=e=>setBpm(+e.target.value||90);
+function updateLoop(){$("bl").style.left=S.lo+"%";$("bh").style.left=S.hi+"%";$("dl").style.width=S.lo+"%";$("dr").style.width=(100-S.hi)+"%"}
+[["bl","lo"],["bh","hi"]].forEach(([id,k])=>{const el=$(id),box=$("morph");let on=false;
+ const go=ev=>{const r=box.getBoundingClientRect(),v=Math.round(Math.min(100,Math.max(0,(ev.clientX-r.left)/r.width*100))*2)/2;
+  if(k==="lo")S.lo=Math.min(v,S.hi-2);else S.hi=Math.max(v,S.lo+2);updateLoop();save();if(playing)replan()};
+ el.addEventListener("pointerdown",ev=>{on=true;el.setPointerCapture(ev.pointerId);ev.preventDefault();go(ev)});
+ el.addEventListener("pointermove",ev=>{if(on)go(ev)});
+ el.addEventListener("pointerup",()=>{on=false});el.addEventListener("pointercancel",()=>{on=false});
+ el.addEventListener("dblclick",()=>{S[k]=k==="lo"?0:100;updateLoop();save();if(playing)replan()})});
+updateLoop();
+$("morph").oninput=e=>{S.morph=+e.target.value;S.auto=false;syncTop();save();   // touching the slider takes manual control from auto
+ replan()};   // while playing, heard straight away, not next cycle
+$("morph").addEventListener("pointerdown",()=>{if(S.auto){S.morph=Math.round(curM()*1000)/10;S.auto=false;syncTop();save();replan()}});
+$("auto").onchange=e=>{const on=e.target.checked;
+ if(!on)S.morph=Math.round(curM()*1000)/10;                      // stay where the morph is, no jump
+ else if(playing)uOff=nowU()-(1+S.morph/100*S.cyc);          // continue the up-ramp from the slider value
+ S.auto=on;syncTop();save();replan()};
+$("secs").oninput=e=>{S.cyc=+e.target.value;syncTop();save()};
+$("sub").onchange=e=>{S.sub=e.target.checked;save()};
+// ---- presets: pattern(s), mutes, morph loop/speed, division, tempo and cycle, kept in this browser
+const PK=["w","w2","bRaw","mute","lo","hi","auto","cyc","morph","swing","sub","bpm","num","den"];
+let PRE=[];try{PRE=JSON.parse(localStorage.getItem("groove-presets")||"[]");if(!Array.isArray(PRE))PRE=[]}catch(e){PRE=[]}
+const savePre=()=>{try{localStorage.setItem("groove-presets",JSON.stringify(PRE))}catch(e){}};
+function fillPre(sel){const o=$("pre");o.innerHTML="";const h=document.createElement("option");h.value="";h.textContent=PRE.length?"Load preset…":"No presets yet";o.appendChild(h);
+ PRE.forEach((q,i)=>{const e=document.createElement("option");e.value=i;e.textContent=q.name;o.appendChild(e)});o.value=sel==null?"":sel}
+$("psave").onclick=()=>{const cur=S.w.join("")+(S.w2?":"+S.w2.join(""):"");let n=prompt("Preset name",cur);if(n==null)return;n=n.trim().slice(0,40)||cur;
+ const d={name:n};PK.forEach(k=>{if(S[k]!==undefined)d[k]=JSON.parse(JSON.stringify(S[k]))});
+ let i=PRE.findIndex(q=>q.name===n);if(i<0){PRE.push(d);i=PRE.length-1}else PRE[i]=d;savePre();fillPre(i)};
+$("pre").onchange=e=>{const q=PRE[+e.target.value];if(!q)return;$("pat").blur();
+ PK.forEach(k=>{if(q[k]!==undefined)S[k]=JSON.parse(JSON.stringify(q[k]));else if(k==="w2"||k==="mute")S[k]=k==="mute"?[]:null});
+ if(!S.bRaw)S.bRaw="";S.cur=null;syncTop();fill();if(typeof updateLoop==="function")updateLoop();save();replan()};
+$("pdel").onclick=()=>{const i=$("pre").value;if(i===""||!PRE[+i])return;if(!confirm('Delete preset "'+PRE[+i].name+'"?'))return;PRE.splice(+i,1);savePre();fillPre()};
+fillPre();
+function segSwing(){document.querySelectorAll("#swg button").forEach(b=>b.classList.toggle("on",b.dataset.v===(S.swing||"")))}
+document.querySelectorAll("#swg button").forEach(b=>b.onclick=()=>{S.swing=b.dataset.v;save();segSwing();if(playing)replan()});
+$("num").onchange=e=>{S.num=Math.min(64,Math.max(1,Math.round(+e.target.value)||1));syncTop();save()};
+$("den").onchange=e=>{S.den=Math.min(28,Math.max(1,Math.round(+e.target.value)||4));syncTop();save()};
+$("voice").value=S.sound.voice||"beep";
+$("voice").onchange=e=>{S.sound.voice=e.target.value;save();ctx=ctx||new(window.AudioContext||window.webkitAudioContext)();ctx.resume();click(ctx.currentTime+.03,{acc:true})};   // plays the new voice once
+if(S.sound.lag==null)S.sound.lag=0;
+[["sp","pitch","spv",v=>Math.round(v)],["svol","vol","svv",v=>(+v).toFixed(2)],["slag","lag","slv",v=>Math.round(v)+" ms"]].forEach(([id,k,vid,f])=>{
+ const e=$(id);e.value=S.sound[k];$(vid).textContent=f(S.sound[k]);e.oninput=()=>{S.sound[k]=+e.value;$(vid).textContent=f(e.value);save()}});
+
+// ---- drawing: the cycle is one polygon whose corners are the onsets
+const cv=$("wheel"),g2=cv.getContext("2d");let dotPts=[];
+// tap a note on the picture to mute or unmute it
+let tapDot=false;
+cv.addEventListener("click",()=>{if(document.body.classList.contains("zen")&&!tapDot)toggle()});   // zen mode: tapping the picture starts and stops
+cv.addEventListener("pointerdown",ev=>{tapDot=false;const r=cv.getBoundingClientRect(),x=ev.clientX-r.left,y=ev.clientY-r.top,k=r.width/440;let bi=-1,bd=(26*Math.max(k,.8))**2;
+ dotPts.forEach((q,i)=>{const d=(q[0]-x)**2+(q[1]-y)**2;if(d<bd){bd=d;bi=i}});
+ if(bi<0)return;tapDot=true;ev.preventDefault();if(!S.mute)S.mute=[];S.mute[bi]=!S.mute[bi];save()});
+const clamp=x=>Math.min(Math.max(x,0),1);
+// smooth clock for animation, locked to what is actually being heard
+let clkOff=null,lastNow=0,disp=null;
+function audioNow(){const pn=performance.now()/1000,d=ctx.currentTime-pn;   // smoothed audio clock, robust to Bluetooth stalls and jumps
+ if(clkOff===null||Math.abs(d-clkOff)>.25){clkOff=d;lastNow=0}else clkOff+=(d-clkOff)*.05;
+ return lastNow=Math.max(lastNow,pn+clkOff-(ctx.outputLatency||0)-(S.sound.lag||0)/1000)}   // picture is held back to match what the speaker/headphones play
+function draw(ts){requestAnimationFrame(draw);fr++;
+ const dpr=Math.min(window.devicePixelRatio||1,2),w=cv.clientWidth;if(!w)return;
+ if(!playing){const sig=[S.w.join(""),S.w2&&S.w2.join(""),S.morph,S.num,S.den,S.accent,S.accent2,document.documentElement.dataset.theme,(S.mute||[]).join(""),document.body.classList.contains("zen"),S.swing,S.sub,w,dpr].join("|");   // nothing moving: don't redraw
+  if(sig===draw.sig&&draw.still)return;if(sig!==draw.sig)draw.still=false;draw.sig=sig}
+ if(cv.width!==Math.round(w*dpr))cv.width=cv.height=Math.round(w*dpr);
+ const col=n=>COLS[n];
+ g2.setTransform(cv.width/w,0,0,cv.width/w,0,0);g2.clearRect(0,0,w,w);
+ const c=w/2,sc=w/440,r=c-22*sc;let shape,now=-9,ph=0,pl;
+ if(ctx&&playing){now=audioNow();while(cycles.length>1&&cycles[1].s<=now)cycles.shift();
+  const p=cycles[0];ph=clamp((now-p.s)/p.P);{const dm=S.auto?autoM(p.k+ph-uOff):S.morph/100;pl=buildPlan(p.k,dm);if(S.auto&&fr%3===0){$("morph").value=(dm*100).toFixed(1);fillBar($("morph"));$("mv").textContent=Math.round(dm*100)+"%"}}while(events.length&&events[0].t<=now){const e=events.shift();hits[e.i]=e.t}}
+ else pl=buildPlan(null);
+ shape=mixHex(S.accent,S.accent2,pl.m);if(shape!==draw.shape&&(!playing||fr%5===0)){document.documentElement.style.setProperty("--shape",shape);draw.shape=shape}   // page-wide colour variable: restyling the whole page every frame is costly, so it follows at a slower paceif(!playing||fr%6===0)
+ const dt=Math.min(.1,Math.max(0,(ts-(draw.t||ts))/1000));draw.t=ts;
+ if(!disp||disp.length!==pl.on.length)disp=pl.on.map(o=>o.pos);else{const k=1-Math.exp(-dt/.05);pl.on.forEach((o,i)=>{disp[i]+=(o.pos-disp[i])*k})}
+ if(!playing){let mx=0;pl.on.forEach((o,i)=>mx=Math.max(mx,Math.abs(o.pos-disp[i])));draw.still=mx<2e-4}
+ const ang=x=>x*2*Math.PI-Math.PI/2,pt=(x,rr)=>[c+rr*Math.cos(ang(x)),c+rr*Math.sin(ang(x))];
+ const dot=(p,rad,f)=>{g2.beginPath();g2.arc(p[0],p[1],rad,0,7);g2.fillStyle=f;g2.fill()};
+ const tick=(x,a,b,color,lw,al)=>{const p=pt(x,a),q=pt(x,b);g2.globalAlpha=al;g2.strokeStyle=color;g2.lineWidth=lw;g2.beginPath();g2.moveTo(p[0],p[1]);g2.lineTo(q[0],q[1]);g2.stroke();g2.globalAlpha=1};
+ const Lb=4*S.num/S.den,gts=[];if(S.w2){gts.push([pl.tA,.7*(1-pl.m)],[pl.tB,.7*pl.m])}else gts.push([pl.tA,.7]);
+ g2.lineWidth=1.5*sc;g2.strokeStyle=col("--fg");g2.beginPath();g2.arc(c,c,r,0,7);g2.stroke();   // the ring: white in dark mode, black in light mode
+ if(Lb<=32)for(let j=0;j<Lb-1e-9;j++)tick(j/Lb,r-5*sc,r+5*sc,col("--fg"),2,.5);   // beats
+ gts.forEach(([t,al])=>{if(t<=64&&al>.01)for(let u=0;u<t;u++)tick(u/t,r-9*sc,r,col("--muted"),1.5,al)});   // the unit grid (11 for 22322)
+ const nP=pl.on.length,at=x=>pt(x,r);
+ if(nP>=2){const pp=disp.map(x=>pt(x,r));
+  g2.beginPath();pp.forEach((q,i)=>i?g2.lineTo(q[0],q[1]):g2.moveTo(q[0],q[1]));g2.closePath();
+  g2.fillStyle=shape;g2.globalAlpha=.07;g2.fill();g2.globalAlpha=.25;g2.strokeStyle=shape;g2.lineWidth=1.5;g2.stroke();
+  const ph1=playing?ph:1;g2.lineWidth=3*sc;g2.lineCap="round";g2.globalAlpha=.9;
+  for(let i=0;i<nP;i++){const a=disp[i],b=i+1<nP?disp[i+1]:1,p0=pp[i],p1=pp[(i+1)%nP];
+   if(ph1<=a)break;const f=ph1>=b?1:(ph1-a)/(b-a);
+   g2.beginPath();g2.moveTo(p0[0],p0[1]);g2.lineTo(p0[0]+(p1[0]-p0[0])*f,p0[1]+(p1[1]-p0[1])*f);g2.stroke()}
+  g2.globalAlpha=1;g2.lineCap="butt"}
+ pl.ev.forEach(e=>{if(e.sub)dot(at(e.pos),3.5*sc,col("--muted"))});   // subdivided notes, when they are sounding
+ dotPts=[];pl.on.forEach((o,i)=>{const q=at(disp[i]);dotPts[i]=q;const rad=(o.acc?9:6.5)*sc;
+  if(S.mute&&S.mute[i]){g2.globalAlpha=.7;g2.lineWidth=1.8*sc;g2.strokeStyle=shape;g2.beginPath();g2.arc(q[0],q[1],rad-.9*sc,0,7);g2.stroke();g2.globalAlpha=1;return}   // muted note: hollow ring
+  const age=now-(hits[i]||-9),pu=age>=0&&age<.3?1+.9*Math.exp(-age*14):1;dot(q,rad*pu,shape)});
+ {const h=at(ph),hc=col("--hand");g2.globalAlpha=.25;dot(h,12*sc,hc);g2.globalAlpha=1;dot(h,7*sc,hc)}   // playhead: a dot travelling on the ring
+ if(playing&&fr%10===0){if(S.auto)$("mv").textContent=Math.round(pl.m*100)+"%"}}
+// two colour dots next to the BPM: the accent blends from the first to the second as the morph goes 0 -> 100%
+const OKC=c=>/^#[0-9a-f]{6}$/i.test(c);
+const mixHex=(a,b,t)=>{const x=[1,3,5].map(i=>parseInt(a.slice(i,i+2),16)),y=[1,3,5].map(i=>parseInt(b.slice(i,i+2),16));return"#"+x.map((v,i)=>Math.round(v+(y[i]-v)*t).toString(16).padStart(2,"0")).join("")};
+if(!OKC(S.accent))S.accent="#228b22";if(!OKC(S.accent2))S.accent2="#d4a017";
+const setCols=()=>{document.documentElement.style.setProperty("--c1",S.accent);document.documentElement.style.setProperty("--c2",S.accent2)};setCols();
+$("accent").value=S.accent;$("accent2").value=S.accent2;
+$("accent").oninput=e=>{S.accent=e.target.value;setCols();save()};
+$("accent2").oninput=e=>{S.accent2=e.target.value;setCols();save()};
+const fillBar=el=>el.style.setProperty("--p",((el.value-el.min)/(el.max-el.min)*100)+"%");
+const fillAll=()=>document.querySelectorAll("input[type=range]").forEach(fillBar);
+document.addEventListener("input",e=>{if(e.target.type==="range")fillBar(e.target)});
+fill();syncTop();fillAll();draw();
+</script>
+</body>
+</html>
