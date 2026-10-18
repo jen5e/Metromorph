@@ -103,7 +103,8 @@ details[open] summary::after{content:"\25B4"}
 summary:hover{color:var(--fg)}
 details>.body{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;padding:10px}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
-.note{margin:18px 16px 28px;text-align:center;font-size:11px;line-height:1.5;color:var(--muted);opacity:.8}
+.note{margin:18px 16px 28px;text-align:center;font-size:11px;line-height:1.5;color:var(--muted);opacity:.8;transition:opacity 1.5s}
+.note.gone{opacity:0}
 body.zen .note{display:none}
 #pre{flex:1;min-width:0;padding:5px 6px;background:var(--field);border:1px solid var(--line);border-radius:2px}
 .pb{padding:5px 10px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;flex:none}
@@ -379,6 +380,7 @@ const fillBar=el=>el.style.setProperty("--p",((el.value-el.min)/(el.max-el.min)*
 const fillAll=()=>document.querySelectorAll("input[type=range]").forEach(fillBar);
 document.addEventListener("input",e=>{if(e.target.type==="range")fillBar(e.target)});
 fill();syncTop();fillAll();draw();
+setTimeout(()=>{const n=document.querySelector(".note");if(n){n.classList.add("gone");setTimeout(()=>{n.style.display="none"},1600)}},30000);   // the credits fade away after 30 s
 </script>
 </body>
 </html>
