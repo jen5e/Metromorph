@@ -381,6 +381,12 @@ const fillAll=()=>document.querySelectorAll("input[type=range]").forEach(fillBar
 document.addEventListener("input",e=>{if(e.target.type==="range")fillBar(e.target)});
 fill();syncTop();fillAll();draw();
 setTimeout(()=>{const n=document.querySelector(".note");if(n){n.classList.add("gone");setTimeout(()=>{n.style.display="none"},1600)}},30000);   // the credits fade away after 30 s
+// keep the screen awake while the page is open (Screen Wake Lock; iOS 16.4+, Android Chrome, desktop)
+let wl=null;
+async function keepAwake(){try{if(!("wakeLock" in navigator)||wl||document.visibilityState!=="visible")return;wl=await navigator.wakeLock.request("screen");wl.addEventListener("release",()=>{wl=null})}catch(e){wl=null}}
+keepAwake();
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")keepAwake()});
+document.addEventListener("pointerdown",keepAwake,{passive:true});
 </script>
 </body>
 </html>
