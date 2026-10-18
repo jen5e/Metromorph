@@ -14,6 +14,8 @@ jobs:
         with: { distribution: temurin, java-version: 21 }
       - run: npm install
       - run: npx cap add android
+      - name: Generate app icons
+        run: npx @capacitor/assets generate --android --assetPath assets
       - run: npx cap sync android
       - name: Build debug APK
         run: cd android && chmod +x gradlew && ./gradlew assembleDebug
