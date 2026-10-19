@@ -7,7 +7,9 @@
   "license": "UNLICENSED",
   "scripts": {
     "electron": "electron .",
-    "dist:mac": "electron-builder --mac --universal --publish never"
+    "dist:mac": "electron-builder --mac --universal --publish never",
+    "dist:mac-intel": "electron-builder --mac --x64 --publish never",
+    "dist:mac-arm": "electron-builder --mac --arm64 --publish never"
   },
   "dependencies": {
     "@capacitor/android": "^7.0.0",
@@ -34,7 +36,8 @@
         "zip"
       ],
       "identity": null,
-      "icon": "build/icon.png"
+      "icon": "build/icon.png",
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
     }
   }
 }
