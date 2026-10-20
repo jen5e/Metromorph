@@ -114,6 +114,7 @@ details>.body{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;padding:1
 body.zen .note{display:none}
 #pre{flex:1;min-width:0;padding:5px 6px;background:var(--field);border:1px solid var(--line);border-radius:2px}
 .pb{padding:5px 10px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;flex:none}
+[hidden]{display:none!important}
 </style>
 </head>
 <body>
@@ -132,6 +133,7 @@ body.zen .note{display:none}
   <div class="card"><details open data-k="rhythm"><summary>Rhythm</summary><div class="body">
   <div class="row"><label for="pat">Pattern</label><input id="pat" class="pat" type="text" inputmode="decimal" autocomplete="off" aria-label="Pattern digits"><button id="colon" type="button" aria-label="Insert colon between two patterns" title="Insert : between two patterns">:</button><span class="ratio" id="ratio" title="steps : total units"></span></div>
   <div class="row"><label for="pre">Preset</label><select id="pre" aria-label="Load a saved preset"></select><button id="psave" class="pb" type="button" title="Save the current pattern and settings as a preset">Save</button><button id="pdel" class="pb" type="button" title="Delete the selected preset">Delete</button></div>
+  <div class="row" id="pnrow" hidden><label for="pname">Name</label><input id="pname" type="text" maxlength="40" autocomplete="off" aria-label="Preset name" style="flex:1;min-width:0;padding:5px 8px;background:var(--field);border:1px solid var(--line);border-radius:2px"><button id="pok" class="pb" type="button">Save</button><button id="pcancel" class="pb" type="button">Cancel</button></div>
   <div class="row"><label for="morph">Morph</label><div class="mw"><input id="morph" type="range" min="0" max="100" step="0.5"><b class="dim" id="dl"></b><b class="dim" id="dr"></b><i class="br lo" id="bl" title="Loop start (double-tap to reset)"></i><i class="br hi" id="bh" title="Loop end (double-tap to reset)"></i></div><span class="val" id="mv"></span></div>
   <div class="row sub"><label><input id="auto" type="checkbox"> auto</label><input id="secs" type="range" min="1" max="64" step="1" aria-label="Cycles for one morph sweep"><span class="val" id="scv" style="width:66px"></span></div>
   <div class="row sub"><label><input id="sub" type="checkbox"> hear subdivision at the ends of the morph</label></div>
@@ -307,13 +309,20 @@ let PRE=[];try{PRE=JSON.parse(localStorage.getItem("groove-presets")||"[]");if(!
 const savePre=()=>{try{localStorage.setItem("groove-presets",JSON.stringify(PRE))}catch(e){}};
 function fillPre(sel){const o=$("pre");o.innerHTML="";const h=document.createElement("option");h.value="";h.textContent=PRE.length?"Load preset…":"No presets yet";o.appendChild(h);
  PRE.forEach((q,i)=>{const e=document.createElement("option");e.value=i;e.textContent=q.name;o.appendChild(e)});o.value=sel==null?"":sel}
-$("psave").onclick=()=>{const cur=S.w.join("")+(S.w2?":"+S.w2.join(""):"");let n=prompt("Preset name",cur);if(n==null)return;n=n.trim().slice(0,40)||cur;
+const pnRow=$("pnrow");   // saving asks for a name in the page itself: prompt() and confirm() are blocked in iPhone home-screen apps, embedded pages and Electron
+function pnOpen(on){pnRow.hidden=!on;if(on){$("pname").value=S.w.join("")+(S.w2?":"+S.w2.join(""):"");$("pname").focus();$("pname").select()}}
+function pnSave(){const cur=S.w.join("")+(S.w2?":"+S.w2.join(""):"");const n=$("pname").value.trim().slice(0,40)||cur;
  const d={name:n};PK.forEach(k=>{if(S[k]!==undefined)d[k]=JSON.parse(JSON.stringify(S[k]))});
- let i=PRE.findIndex(q=>q.name===n);if(i<0){PRE.push(d);i=PRE.length-1}else PRE[i]=d;savePre();fillPre(i)};
+ let i=PRE.findIndex(q=>q.name===n);if(i<0){PRE.push(d);i=PRE.length-1}else PRE[i]=d;savePre();fillPre(i);pnOpen(false)}
+$("psave").onclick=()=>pnOpen(pnRow.hidden);
+$("pok").onclick=pnSave;$("pcancel").onclick=()=>pnOpen(false);
+$("pname").onkeydown=e=>{if(e.key==="Enter")pnSave();else if(e.key==="Escape")pnOpen(false)};
 $("pre").onchange=e=>{const q=PRE[+e.target.value];if(!q)return;$("pat").blur();
  PK.forEach(k=>{if(q[k]!==undefined)S[k]=JSON.parse(JSON.stringify(q[k]));else if(k==="w2"||k==="mute")S[k]=k==="mute"?[]:null});
  if(!S.bRaw)S.bRaw="";S.cur=null;syncTop();fill();if(typeof updateLoop==="function")updateLoop();save();replan()};
-$("pdel").onclick=()=>{const i=$("pre").value;if(i===""||!PRE[+i])return;if(!confirm('Delete preset "'+PRE[+i].name+'"?'))return;PRE.splice(+i,1);savePre();fillPre()};
+let delT=0;$("pdel").onclick=()=>{const i=$("pre").value;if(i===""||!PRE[+i])return;
+ if(!delT){$("pdel").textContent="Sure?";delT=setTimeout(()=>{delT=0;$("pdel").textContent="Delete"},3000);return}
+ clearTimeout(delT);delT=0;$("pdel").textContent="Delete";PRE.splice(+i,1);savePre();fillPre()};
 fillPre();
 function segSwing(){document.querySelectorAll("#swg button").forEach(b=>b.classList.toggle("on",b.dataset.v===(S.swing||"")))}
 document.querySelectorAll("#swg button").forEach(b=>b.onclick=()=>{S.swing=b.dataset.v;save();segSwing();if(playing)replan()});
