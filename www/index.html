@@ -138,6 +138,7 @@ body.zen .note{display:none}
   <div class="row sub"><label><input id="auto" type="checkbox"> auto</label><input id="secs" type="range" min="1" max="64" step="1" aria-label="Cycles for one morph sweep"><span class="val" id="scv" style="width:66px"></span></div>
   <div class="row sub"><label><input id="sub" type="checkbox"> hear subdivision at the ends of the morph</label></div>
   <div class="row"><label>Division</label><div class="seg" id="swg" role="group" aria-label="Division: subdivisions through the morph"><button type="button" data-v="">Off</button><button type="button" data-v="all" title="All subdivisions: the bigger grid dissolves into the smaller one">All</button><button type="button" data-v="fit" title="Fit: only as many notes as the smaller grid has, shifted along">Fit</button></div></div>
+  <div class="row sub"><label title="The first note of the cycle always sounds, even when it is muted by a tap or by the random mute"><input id="one" type="checkbox"> always play the 1 (works over mute)</label></div>
   <div class="row"><label for="rnd" title="Each note has this chance of being left out, at random">Random</label><input id="rnd" type="range" min="0" max="100" step="5" aria-label="Random mute, percent of notes dropped"><span class="val" id="rnv"></span></div>
   </div></details>
   <details open data-k="time"><summary>Time</summary><div class="body">
@@ -247,7 +248,7 @@ function resync(){const now=ctx.currentTime,C=cycDur();if(now-cycleStart>C+.2){c
 function sched(){if(ctx.state==="closed")return;resync();const H=ctx.currentTime+.12;
  if(events.length>64)events.splice(0,events.length-64);if(cycles.length>6)cycles.splice(0,cycles.length-3);
  for(;;){const C=cycDur();
-  while(pi<cur.ev.length){const e=cur.ev[pi],t=cycleStart+e.pos*C;if(t>=H)return;if(t<ctx.currentTime-.05){pi++;continue}const mu=(!e.sub&&S.mute&&S.mute[e.i])||(S.rnd>0&&Math.random()*100<S.rnd);if(!mu){click(Math.max(t,ctx.currentTime),e);if(!e.sub)events.push({t,i:e.i})}lastPos=e.pos;pi++}
+  while(pi<cur.ev.length){const e=cur.ev[pi],t=cycleStart+e.pos*C;if(t>=H)return;if(t<ctx.currentTime-.05){pi++;continue}const mu=!(S.one&&!e.sub&&e.i===0)&&((!e.sub&&S.mute&&S.mute[e.i])||(S.rnd>0&&Math.random()*100<S.rnd));/*the 1 beats every mute*/if(!mu){click(Math.max(t,ctx.currentTime),e);if(!e.sub)events.push({t,i:e.i})}lastPos=e.pos;pi++}
   if(cycleStart+C<H){cycleStart+=C;cycleNo++;cur=buildPlan(cycleNo);pi=0;lastPos=-1;cycles.push({s:cycleStart,P:C,k:cycleNo})}else return}}
 // iPhone: Web Audio is silenced by the ringer switch unless the page counts as "playback" audio. A looping silent <audio> element, started in the tap, does that.
 let silent=null;
@@ -277,7 +278,7 @@ function meta(){const sum=w=>w.reduce((a,b)=>a+b,0),tA=sum(S.w);
  if(S.w2||!S.bRaw)$("ratio").innerHTML='<span class="l">'+rl+'</span><span class="c"> : </span><span class="r">'+rr+'</span>';else $("ratio").textContent="needs "+S.w.length;
  if(document.activeElement!==$("pat"))$("pat").value=S.w.join("")+(S.w2?":"+S.w2.join(""):"");}
 function fill(){meta()}
-function syncTop(){$("bpm").value=$("bpmn").value=S.bpm;$("tpv").textContent=S.bpm;$("morph").value=S.morph;$("mv").textContent=Math.round(S.morph)+"%";$("auto").checked=S.auto;$("sub").checked=!!S.sub;segSwing();$("rnd").value=S.rnd||0;$("rnv").textContent=S.rnd>0?S.rnd+"% muted":"off";$("secs").value=S.cyc;$("scv").textContent=S.cyc+" cycles";
+function syncTop(){$("bpm").value=$("bpmn").value=S.bpm;$("tpv").textContent=S.bpm;$("morph").value=S.morph;$("mv").textContent=Math.round(S.morph)+"%";$("auto").checked=S.auto;$("sub").checked=!!S.sub;$("one").checked=!!S.one;segSwing();$("rnd").value=S.rnd||0;$("rnv").textContent=S.rnd>0?S.rnd+"% muted":"off";$("secs").value=S.cyc;$("scv").textContent=S.cyc+" cycles";
  $("num").value=S.num;$("den").value=S.den;$("cyc").textContent=+(4*S.num/S.den).toFixed(2)+" beats";if(typeof fillAll==="function")fillAll()}
 $("pat").oninput=e=>{const p=e.target.value.split(/[:;.,\/\s-]+/).map(x=>x.replace(/[^1-9]/g,"").slice(0,32));   // "22322" or "22322:33433"; : ; . , / - or a space all separate the two patterns
  if(!p[0])return;if(p[0].length!==S.w.length)S.mute=[];S.w=[...p[0]].map(Number);S.bRaw=p[1]||"";S.w2=p[1]&&p[1].length===p[0].length?[...p[1]].map(Number):null;fill();save()};
@@ -302,9 +303,10 @@ $("auto").onchange=e=>{const on=e.target.checked;
  S.auto=on;syncTop();save();replan()};
 $("secs").oninput=e=>{S.cyc=+e.target.value;syncTop();save()};
 $("rnd").oninput=e=>{S.rnd=+e.target.value;syncTop();save()};
+$("one").onchange=e=>{S.one=e.target.checked;save()};
 $("sub").onchange=e=>{S.sub=e.target.checked;save()};
 // ---- presets: pattern(s), mutes, morph loop/speed, division, tempo and cycle, kept in this browser
-const PK=["w","w2","bRaw","mute","rnd","lo","hi","auto","cyc","morph","swing","sub","bpm","num","den"];
+const PK=["w","w2","bRaw","mute","rnd","one","lo","hi","auto","cyc","morph","swing","sub","bpm","num","den"];
 let PRE=[];try{PRE=JSON.parse(localStorage.getItem("groove-presets")||"[]");if(!Array.isArray(PRE))PRE=[]}catch(e){PRE=[]}
 const savePre=()=>{try{localStorage.setItem("groove-presets",JSON.stringify(PRE))}catch(e){}};
 function fillPre(sel){const o=$("pre");o.innerHTML="";const h=document.createElement("option");h.value="";h.textContent=PRE.length?"Load preset…":"No presets yet";o.appendChild(h);
@@ -381,7 +383,7 @@ function draw(ts){requestAnimationFrame(draw);fr++;
   g2.globalAlpha=1;g2.lineCap="butt"}
  pl.ev.forEach(e=>{if(e.sub)dot(at(e.pos),3.5*sc,col("--muted"))});   // subdivided notes, when they are sounding
  dotPts=[];pl.on.forEach((o,i)=>{const q=at(disp[i]);dotPts[i]=q;const rad=(o.acc?9:6.5)*sc;
-  if(S.mute&&S.mute[i]){g2.globalAlpha=.7;g2.lineWidth=1.8*sc;g2.strokeStyle=shape;g2.beginPath();g2.arc(q[0],q[1],rad-.9*sc,0,7);g2.stroke();g2.globalAlpha=1;return}   // muted note: hollow ring
+  if(S.mute&&S.mute[i]&&!(S.one&&i===0)){g2.globalAlpha=.7;g2.lineWidth=1.8*sc;g2.strokeStyle=shape;g2.beginPath();g2.arc(q[0],q[1],rad-.9*sc,0,7);g2.stroke();g2.globalAlpha=1;return}   // muted note: hollow ring
   const age=now-(hits[i]||-9),pu=age>=0&&age<.3?1+.9*Math.exp(-age*14):1;dot(q,rad*pu,shape)});
  {const h=at(ph),hc=col("--hand");g2.globalAlpha=.25;dot(h,12*sc,hc);g2.globalAlpha=1;dot(h,7*sc,hc)}   // playhead: a dot travelling on the ring
  if(playing&&fr%10===0){if(S.auto)$("mv").textContent=Math.round(pl.m*100)+"%"}}
