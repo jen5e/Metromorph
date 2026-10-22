@@ -43,6 +43,7 @@ input.dot::-moz-color-swatch{border:0}
 
 .seg{display:flex;flex:1;min-width:0;gap:2px;background:var(--field);border:1px solid var(--line);border-radius:2px;padding:2px}
 .seg button{flex:1;min-width:0;border:0;padding:4px 0;font-size:10px;letter-spacing:.12em;text-transform:uppercase;background:transparent}
+.seg button svg{display:block;margin:0 auto}
 .seg button.on{background:color-mix(in srgb,var(--shape) 35%,transparent);color:var(--fg)}
 .zb{left:46px}
 .theme svg{display:block}
@@ -143,6 +144,7 @@ body.zen .note{display:none}
   </div></details>
   <details open data-k="time"><summary>Time</summary><div class="body">
   <div class="row"><label for="bpm">Tempo</label><input id="bpm" type="range" min="30" max="300" step="1"><span class="val" id="tpv"></span></div>
+  <div class="row"><label>Length</label><div class="seg" id="lenp" role="group" aria-label="Cycle length: 2 bars, 1 bar, or a note value"><button type="button" data-n="2" data-d="1" title="2 bars" aria-label="2 bars"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><ellipse cx="12" cy="12" rx="6" ry="4.2" transform="rotate(-20 12 12)" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3.5 7v10M20.5 7v10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button><button type="button" data-n="1" data-d="1" title="1 bar" aria-label="1 bar"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><ellipse cx="12" cy="12" rx="6.5" ry="4.6" transform="rotate(-20 12 12)" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></button><button type="button" data-n="1" data-d="2" title="1/2 note" aria-label="1/2 note"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><ellipse cx="8" cy="19" rx="5.2" ry="3.7" transform="rotate(-20 8 19)" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12.6 17.6V4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button><button type="button" data-n="1" data-d="4" title="1/4 note" aria-label="1/4 note"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><ellipse cx="8" cy="19" rx="5.2" ry="3.7" transform="rotate(-20 8 19)" fill="currentColor"/><path d="M12.6 17.6V4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button><button type="button" data-n="1" data-d="8" title="1/8 note" aria-label="1/8 note"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><ellipse cx="8" cy="19" rx="5.2" ry="3.7" transform="rotate(-20 8 19)" fill="currentColor"/><path d="M12.6 17.6V4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12.6 4c0 4 5 5 5 9.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button><button type="button" data-n="1" data-d="16" title="1/16 note" aria-label="1/16 note"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><ellipse cx="8" cy="19" rx="5.2" ry="3.7" transform="rotate(-20 8 19)" fill="currentColor"/><path d="M12.6 17.6V4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12.6 4c0 4 5 5 5 9.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12.6 9.5c0 3.5 5 4.5 5 8.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></div></div>
   <div class="row"><label>Cycle</label><input id="num" type="number" min="1" max="64" aria-label="Cycle numerator"><span>/</span><input id="den" type="number" min="1" max="28" aria-label="Cycle denominator"><span class="val" id="cyc" style="width:auto;flex:1;text-align:left"></span></div>
   </div></details>
   <details data-k="sound"><summary>Sound</summary><div class="body">
@@ -279,7 +281,7 @@ function meta(){const sum=w=>w.reduce((a,b)=>a+b,0),tA=sum(S.w);
  if(document.activeElement!==$("pat"))$("pat").value=S.w.join("")+(S.w2?":"+S.w2.join(""):"");}
 function fill(){meta()}
 function syncTop(){$("bpm").value=$("bpmn").value=S.bpm;$("tpv").textContent=S.bpm;$("morph").value=S.morph;$("mv").textContent=Math.round(S.morph)+"%";$("auto").checked=S.auto;$("sub").checked=!!S.sub;$("one").checked=!!S.one;segSwing();$("rnd").value=S.rnd||0;$("rnv").textContent=S.rnd>0?S.rnd+"% muted":"off";$("secs").value=S.cyc;$("scv").textContent=S.cyc+" cycles";
- $("num").value=S.num;$("den").value=S.den;$("cyc").textContent=+(4*S.num/S.den).toFixed(2)+" beats";if(typeof fillAll==="function")fillAll()}
+ segLen();$("num").value=S.num;$("den").value=S.den;$("cyc").textContent=+(4*S.num/S.den).toFixed(2)+" beats";if(typeof fillAll==="function")fillAll()}
 $("pat").oninput=e=>{const p=e.target.value.split(/[:;.,\/\s-]+/).map(x=>x.replace(/[^1-9]/g,"").slice(0,32));   // "22322" or "22322:33433"; : ; . , / - or a space all separate the two patterns
  if(!p[0])return;if(p[0].length!==S.w.length)S.mute=[];S.w=[...p[0]].map(Number);S.bRaw=p[1]||"";S.w2=p[1]&&p[1].length===p[0].length?[...p[1]].map(Number):null;fill();save()};
 $("colon").onclick=()=>{const i=$("pat");if(!/[:;.,\/\s-]/.test(i.value))i.value+=":";i.focus();i.oninput({target:i})};   // iOS keypads have no colon
@@ -328,6 +330,8 @@ let delT=0;$("pdel").onclick=()=>{const i=$("pre").value;if(i===""||!PRE[+i])ret
 fillPre();
 function segSwing(){document.querySelectorAll("#swg button").forEach(b=>b.classList.toggle("on",b.dataset.v===(S.swing||"")))}
 document.querySelectorAll("#swg button").forEach(b=>b.onclick=()=>{S.swing=b.dataset.v;save();segSwing();if(playing)replan()});
+function segLen(){document.querySelectorAll("#lenp button").forEach(b=>b.classList.toggle("on",+b.dataset.n===S.num&&+b.dataset.d===S.den))}
+document.querySelectorAll("#lenp button").forEach(b=>b.onclick=()=>{S.num=+b.dataset.n;S.den=+b.dataset.d;syncTop();save()});
 $("num").onchange=e=>{S.num=Math.min(64,Math.max(1,Math.round(+e.target.value)||1));syncTop();save()};
 $("den").onchange=e=>{S.den=Math.min(28,Math.max(1,Math.round(+e.target.value)||4));syncTop();save()};
 $("voice").value=S.sound.voice||"beep";
